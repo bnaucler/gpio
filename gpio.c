@@ -126,7 +126,7 @@ int direction(int pin, int value) {
 	return 0;
 }
 
-int main (int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 
 	// Initial syntax check
 	if(argc < 2 || argc > 4 ||
@@ -164,19 +164,19 @@ int main (int argc, char *argv[]) {
 
 	} else if(!strcmp(argv[1], "w") && argc == 4 &&
 		(!strcmp(argv[3], "0") || !strcmp(argv[3], "off"))) {
-		return write(pnum, 0); 
+		return write(pnum, 0);
 
-	} else if(!strcmp(argv[1], "r") && argc == 3) { 
+	} else if(!strcmp(argv[1], "r") && argc == 3) {
 		return read(pnum);
 
 	} else if(!strcmp(argv[1], "d") && argc == 4 &&
 		(!strcmp(argv[3], "0") || !strcmp(argv[3], "in"))) {
-		return direction(pnum, 0); 
+		return direction(pnum, 0);
 
 	} else if(!strcmp(argv[1], "d") && argc == 4 &&
 		(!strcmp(argv[3], "1") || !strcmp(argv[3], "out"))) {
-		return direction(pnum, 1); 
-	} 
-		
-	return usage(1); 
+		return direction(pnum, 1);
+	}
+
+	return usage(1);
 }
