@@ -1,4 +1,4 @@
-/* 
+/*
 
 	Raspberry Pi GPIO control
 	Björn W Nauclér 2014
@@ -19,154 +19,164 @@
 #include <stdlib.h>
 #include <string.h>
 
-int main (int argc, char *argv[])
-{
-	// Initial syntax check
-	if (argc < 2 || argc > 4 ||
-	(!strcmp(argv[1], "w") && argc != 4) || 
-	(!strcmp(argv[1], "r") && argc != 3) ||
-	(!strcmp(argv[1], "d") && argc != 4) ||
-	((strcmp(argv[1], "w")) && 
-	(strcmp(argv[1], "r")) && 
-	(strcmp(argv[1], "d"))) )
-	{ usage(); }
+#define PLEN 128
 
-	int a;
-	int correctPin = 0;
-	int pinNumber = atoi(argv[2]);
-	int availablePins[] = {
-	2, 3, 4, 7, 8, 9, 10, 11, 14, 
-	15, 17, 18, 22, 23, 24, 25, 27
-	};
+int usage(int ret) {
 
-	// Validating pin number (adjust 16 for array size)
-	for (a=0;a<=16;a++)
-	{ if (pinNumber == availablePins[a]) { correctPin = 1; } }
-
-	// Function selector and secondary syntax check
-	if (correctPin != 1)
-	{ puts("Incorrect pin number."); exit(1); }
-	else if (!strcmp(argv[1], "w") && argc == 4 &&
-	(!strcmp(argv[3], "1") || !strcmp(argv[3], "on"))) 
-	{ write(pinNumber, 1); }
-	else if (!strcmp(argv[1], "w") && argc == 4 &&
-	(!strcmp(argv[3], "0") || !strcmp(argv[3], "off")))
-	{ write(pinNumber, 0); } 
-	else if (!strcmp(argv[1], "r") && argc == 3)
-	{ read(pinNumber); }
-	else if (!strcmp(argv[1], "d") && argc == 4 &&
-	(!strcmp(argv[3], "0") || !strcmp(argv[3], "in")))
-	{ direction(pinNumber, 0); }
-	else if (!strcmp(argv[1], "d") && argc == 4 &&
-	(!strcmp(argv[3], "1") || !strcmp(argv[3], "out")))
-	{ direction(pinNumber, 1); }
-	else { usage(); }
-}
-
-int usage() {
 	puts("Usage: gpio [r/w/d] [gpio #] ([on/off][in/out])");
 	puts("");
 	puts("Read example: gpio r 22 (returns status of gpio pin #22)");
 	puts("Write example: gpio w 17 on (enables current on gpio pin #17)");
 	puts("Direction example: gpio d 4 in (sets pinmode on gpio pin 4 to input)");
-	exit(0);
+
+	exit(ret);
 }
 
 // Turning output pins on/off (including direction validation)
-int write (int pin, int value) {
+int write(int pin, int value) {
 
-	char vpath[60];
-	char dpath[60];
-	char direction[1];
+	char vpath[PLEN];
+	char dpath[PLEN];
+	char direction[4];
 
-	sprintf(dpath, "/sys/class/gpio/gpio%d/direction", pin);
-	sprintf(vpath, "/sys/class/gpio/gpio%d/value", pin);
+	snprintf(dpath, PLEN, "/sys/class/gpio/gpio%d/direction", pin);
+	snprintf(vpath, PLEN, "/sys/class/gpio/gpio%d/value", pin);
 
 	FILE* fpv = fopen(vpath, "w");
 	FILE* fpd = fopen(dpath, "r");
 
-	if (fpd == NULL) {
-		printf("Cannot open file %s for reading direction.", dpath);
-		puts("");
-		exit(1);
+	if(!fpd) {
+		printf("Cannot open file %s for reading direction.\n", dpath);
+		return 1;
 	}
 
-	if (fpv == NULL) {
-		printf("Cannot open file %s for writing.", vpath);
-		puts("");
-		exit(1);
+	if(!fpv) {
+		printf("Cannot open file %s for writing.\n", vpath);
+		return 1;
 	}
 
-	fseek(fpd, SEEK_SET, 0);
 	fread(direction, 3, 1, fpd);
 
 	if (strcmp(direction, "out")) {
-		printf("GPIO pin %d is not configured for output. Try 'gpio d %d out'.", pin, pin);
-		puts("");
-		exit(1);
+		printf("GPIO pin %d is not configured for output. Try 'gpio d %d out'.\n",
+			pin, pin);
+		return 1;
 	}
 
 	fprintf(fpv, "%d", value);
+
 	fclose(fpd);
 	fclose(fpv);
-	exit(0);
+
+	return 0;
 }
 
 // Output pin direction and value
-int read (int pin) {
+int read(int pin) {
 
 	int value;
 
-	char vpath[60];
-	char dpath[60];
+	char vpath[PLEN];
+	char dpath[PLEN];
 
 	sprintf(vpath, "/sys/class/gpio/gpio%d/value", pin);
 	sprintf(dpath, "/sys/class/gpio/gpio%d/direction", pin);
 
 	FILE* fpd = fopen(dpath, "r");
 	FILE* fpv = fopen(vpath, "r");
-	if (fpv == NULL) {
-		printf("Cannot open file %s for reading.", vpath);
-		puts("");
-		exit(1);
+
+	if(!fpv) {
+		printf("Cannot open file %s for reading.\n", vpath);
+		return 1;
 	}
-	if (fpd == NULL) {
-		printf("Cannot open file %s for reading.", dpath);
-		puts("");
-		exit(1);
+	if(!fpd) {
+		printf("Cannot open file %s for reading.\n", dpath);
+		return 1;
 	}
 
 	printf("Direction: ");
-        while(fscanf(fpd, "%c", &value) == 1)
-                printf("%c", value);
+	while(fscanf(fpd, "%d", &value)) printf("%c\n", value);
 
 	printf("Value: ");
-	while(fscanf(fpv, "%d", &value) == 1)
-		printf("%d", value);
+	while(fscanf(fpv, "%d", &value)) printf("%d\n", value);
 
-	puts("");
 	fclose(fpv);
 	fclose(fpd);
-	exit(0);
+
+	return 0;
 }
 
 // Set in/out direction per pin
-int direction (pin, value) {
-	
-	char dpath[60];
+int direction(int pin, int value) {
+
+	char dpath[PLEN];
 
 	sprintf(dpath, "/sys/class/gpio/gpio%d/direction", pin);
 
-        FILE* fpd = fopen(dpath, "w");
-        if (fpd == NULL) {
-                printf("Cannot open file %s for writing.", dpath);
-                puts("");
-                exit(1);
-        }
+	FILE* fpd = fopen(dpath, "w");
+	if(!fpd) {
+		printf("Cannot open file %s for writing.\n", dpath);
+		return 1;
+	}
 
-	if (value == 1) { fprintf(fpd, "out"); }
-	if (value == 0) { fprintf(fpd, "in"); }
+	if(value == 1) fprintf(fpd, "out");
+	else if(!value) fprintf(fpd, "in");
 
 	fclose(fpd);
-	exit(0);
+	return 0;
+}
+
+int main (int argc, char *argv[]) {
+
+	// Initial syntax check
+	if(argc < 2 || argc > 4 ||
+	(!strcmp(argv[1], "w") && argc != 4) ||
+	(!strcmp(argv[1], "r") && argc != 3) ||
+	(!strcmp(argv[1], "d") && argc != 4) ||
+	((strcmp(argv[1], "w")) &&
+	(strcmp(argv[1], "r")) &&
+	(strcmp(argv[1], "d"))))
+		usage(1);
+
+	int a = 0, cpin = 0;
+	int pnum = (int) strtol(argv[2], NULL, 10);
+	int apins[] = {
+	2, 3, 4, 7, 8, 9, 10, 11, 14,
+	15, 17, 18, 22, 23, 24, 25, 27
+	};
+
+	// Validating pin number (adjust 16 for array size)
+	do {
+		if(pnum == apins[a]) {
+			cpin++;
+			break;
+		}
+	} while(apins[++a]);
+
+	// Function selector and secondary syntax check
+	if(!cpin) {
+		puts("Incorrect pin number.");
+		return 1;
+
+	} else if(!strcmp(argv[1], "w") && argc == 4 &&
+		(!strcmp(argv[3], "1") || !strcmp(argv[3], "on"))) {
+		return write(pnum, 1);
+
+	} else if(!strcmp(argv[1], "w") && argc == 4 &&
+		(!strcmp(argv[3], "0") || !strcmp(argv[3], "off"))) {
+		return write(pnum, 0); 
+
+	} else if(!strcmp(argv[1], "r") && argc == 3) { 
+		return read(pnum);
+
+	} else if(!strcmp(argv[1], "d") && argc == 4 &&
+		(!strcmp(argv[3], "0") || !strcmp(argv[3], "in"))) {
+		return direction(pnum, 0); 
+
+	} else if(!strcmp(argv[1], "d") && argc == 4 &&
+		(!strcmp(argv[3], "1") || !strcmp(argv[3], "out"))) {
+		return direction(pnum, 1); 
+	} 
+		
+	return usage(1); 
 }
